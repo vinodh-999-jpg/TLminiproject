@@ -1,0 +1,26 @@
+# Windows monitoring
+pywin32>=306
+psutil>=5.9.8
+pynput>=1.7.6
+pywinauto>=0.6.8
+
+# System tray
+pystray>=0.19.4
+Pillow>=10.3.0
+
+# HTTP client
+requests>=2.31.0
+
+# Backend
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+
+# Database
+sqlalchemy>=2.0.30
+
+# Config
+python-dotenv>=1.0.1
+
+# Dev / utils
+colorlog>=6.8.2

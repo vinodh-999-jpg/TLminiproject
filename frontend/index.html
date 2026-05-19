@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Productivity Tracker — Cognitive Command</title>
+<link rel="stylesheet" href="/static/style.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="layout">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-badge">⚡</div>
+    <div class="logo-title">Tracker v1.0</div>
+    <div class="logo-sub">COGNITIVE COMMAND</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Workspace</div>
+    <div class="nav-item active" id="nav-dashboard" onclick="showPage('dashboard')">
+      <span class="icon">◈</span> Dashboard
+    </div>
+    <div class="nav-item" id="nav-review" onclick="showPage('review')">
+      <span class="icon">◎</span> Review Sessions
+      <span id="sidebar-badge" style="margin-left:auto;display:none" class="pending-badge">0</span>
+    </div>
+    <div class="nav-section-label">System</div>
+    <div class="nav-item" id="nav-settings" onclick="showPage('settings')">
+      <span class="icon">⚙</span> Settings
+    </div>
+  </nav>
+  <div class="sidebar-bottom">
+    <div style="font-size:11px;color:var(--outline);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+      <span id="sb-live-dot" style="width:6px;height:6px;border-radius:50%;background:var(--tertiary);display:inline-block;box-shadow:0 0 6px var(--tertiary)"></span>
+      <span id="sb-live-app">Monitoring…</span>
+    </div>
+    <div style="font-size:10px;color:var(--outline);background:rgba(76,215,246,0.06);border:1px solid rgba(76,215,246,0.15);border-radius:8px;padding:8px 12px">
+      📌 Current: <span id="sb-cat" style="color:var(--tertiary);font-weight:500">—</span>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <span class="app-name">AOS Console</span>
+    <div class="tab-nav">
+      <button class="tab active" id="tab-dashboard" onclick="showPage('dashboard')">Focus</button>
+      <button class="tab" id="tab-review" onclick="showPage('review')">Velocity</button>
+      <button class="tab" id="tab-settings" onclick="showPage('settings')">Output</button>
+    </div>
+    <div class="cmd-bar" id="cmd-bar">
+      <span style="font-size:13px;opacity:.5">⌘</span>
+      <span id="cmd-text">Query metrics…</span>
+    </div>
+    <div class="topbar-icons">
+      <span id="pending-badge" onclick="showPage('review')" class="pending-badge" style="display:none">0 pending</span>
+      <div class="live-indicator">
+        <span class="live-dot"></span>
+        LIVE
+      </div>
+      <div class="icon-btn" title="Refresh" onclick="loadDashboard()">↻</div>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- DASHBOARD PAGE -->
+    <div class="page active" id="page-dashboard">
+
+      <!-- Hero -->
+      <div class="hero-section">
+        <div class="system-status">
+          <span class="live-dot"></span>
+          SYSTEM STATUS ACTIVE
+        </div>
+        <div class="hero-title" id="hero-title">Loading…</div>
+        <div class="hero-sub" id="hero-sub">Monitoring your activity in real-time</div>
+        <div class="hero-score">
+          <div class="score-ring-wrap">
+            <svg viewBox="0 0 90 90" width="90" height="90">
+              <circle cx="45" cy="45" r="38" fill="none" stroke="rgba(76,215,246,0.1)" stroke-width="6"/>
+              <circle id="score-arc" cx="45" cy="45" r="38" fill="none" stroke="#4cd7f6" stroke-width="6"
+                stroke-linecap="round" stroke-dasharray="239" stroke-dashoffset="239"
+                style="transition:stroke-dashoffset 1s ease;filter:drop-shadow(0 0 6px #4cd7f6)"/>
+            </svg>
+            <div class="score-text">
+              <span class="score-num" id="score-num">—</span>
+              <span class="score-label">Focus</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="grid3" style="margin-bottom:16px">
+        <div class="card card-sm">
+          <div class="stat-label">Total Time Today</div>
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-sub" id="stat-sessions">0 sessions</div>
+        </div>
+        <div class="card card-sm">
+          <div class="stat-label">Top Category</div>
+          <div class="stat-value" id="stat-top" style="font-size:18px;margin-top:2px">—</div>
+          <div class="stat-sub" id="stat-top-pct"></div>
+        </div>
+        <div class="card card-sm">
+          <div class="stat-label">Pending Review</div>
+          <div class="stat-value" id="stat-pending">—</div>
+          <div class="stat-sub">sessions awaiting log</div>
+          <div class="stat-chip chip-cyan" id="stat-pending-chip" style="display:none">⏳ Review now</div>
+        </div>
+      </div>
+
+      <!-- Charts row -->
+      <div class="grid2-3" style="margin-bottom:16px">
+        <div class="card">
+          <div class="section-title">Today by Category</div>
+          <div class="chart-wrap"><canvas id="pie-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="section-title">7-Day Timeline</div>
+          <div class="chart-wrap"><canvas id="bar-chart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Session feed -->
+      <div class="card">
+        <div class="section-title" style="display:flex;align-items:center;gap:10px">
+          Recent Sessions
+          <span style="font-size:11px;color:var(--outline);font-weight:400">Grouped by activity — each card = one tracked session</span>
+        </div>
+        <!-- Live in-progress session (updated via SSE, not from DB) -->
+        <div id="live-session-card" style="display:none;border-bottom:1px solid rgba(76,215,246,0.12);padding-bottom:10px;margin-bottom:4px"></div>
+        <div class="stepper" id="activity-feed"></div>
+      </div>
+    </div>
+
+    <!-- REVIEW PAGE -->
+    <div class="page" id="page-review">
+      <div class="toolbar">
+        <div>
+          <div class="page-headline">Velocity Review</div>
+          <div class="page-sub">Confirm sessions below to sync with Clockify — <span id="pending-count-lbl">0 pending</span></div>
+        </div>
+        <button class="log-all-btn" id="log-all-btn" onclick="logAllToClockify()">
+          🚀 Log All to Clockify
+        </button>
+      </div>
+      <div id="pending-list"></div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div class="page" id="page-settings">
+      <div class="toolbar" style="margin-bottom:24px">
+        <div>
+          <div class="page-headline">Output Configuration</div>
+          <div class="page-sub">Configure Clockify integration and tracker behaviour</div>
+        </div>
+      </div>
+      <div class="card" style="max-width:680px">
+        <div class="section-title">Clockify Integration</div>
+        <div class="settings-grid" style="margin-bottom:24px">
+          <div class="field-group" style="grid-column:span 2">
+            <label class="field-label">API Key</label>
+            <input type="text" id="s-api-key" placeholder="Paste your Clockify API key…"/>
+            <span style="font-size:11px;color:var(--outline);margin-top:4px">Found at clockify.me → Profile → API Key</span>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Workspace ID</label>
+            <input type="text" id="s-workspace-id" placeholder="Workspace ID"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Default Project ID (optional)</label>
+            <input type="text" id="s-project-id" placeholder="Project ID"/>
+          </div>
+        </div>
+        <div class="section-title" style="margin-top:8px">Tracker Behaviour</div>
+        <div class="settings-grid" style="margin-bottom:24px">
+          <div class="field-group">
+            <label class="field-label">Idle Threshold (minutes)</label>
+            <input type="number" id="s-idle" value="5" min="1"/>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Min Session Length (seconds)</label>
+            <input type="number" id="s-min-sess" value="30" min="10"/>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()" style="padding:10px 28px;font-size:13.5px">💾 Save Settings</button>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- EDIT MODAL -->
+<div id="modal-overlay">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">✏️ Edit Session</div>
+    <input type="hidden" id="edit-id"/>
+    <div style="display:flex;flex-direction:column;gap:14px">
+
+      <!-- Time range display (read-only) -->
+      <div id="edit-timerange" style="font-size:12px;color:var(--outline);background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 12px;border:1px solid rgba(255,255,255,0.06)">
+        ⏱ —
+      </div>
+
+      <!-- Description (message shown in Clockify) -->
+      <div class="field-group">
+        <label class="field-label">📝 Description <span style="font-size:10px;color:var(--outline)">(shown as Clockify entry message)</span></label>
+        <input type="text" id="edit-desc" placeholder="e.g. completed database scaling module review"/>
+      </div>
+
+      <!-- Project (fetched from Clockify) -->
+      <div class="field-group">
+        <label class="field-label">📁 Project <span style="font-size:10px;color:var(--outline)">(Clockify project to log under)</span></label>
+        <select class="native" id="edit-project">
+          <option value="">⏳ Loading projects…</option>
+        </select>
+      </div>
+
+      <!-- Category (for internal classification) -->
+      <div class="field-group">
+        <label class="field-label">🏷 Category <span style="font-size:10px;color:var(--outline)">(internal only)</span></label>
+        <select class="native" id="edit-cat">
+          <option>Coding</option><option>DSA Practice</option><option>Learning</option>
+          <option>Meetings</option><option>Communication</option><option>Documentation</option>
+          <option>Research</option><option>Design</option><option>Entertainment</option>
+          <option>Browsing</option><option>System</option><option>Unknown</option>
+        </select>
+      </div>
+
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const COLORS={
+  'Coding':'#a5b4fc','DSA Practice':'#34d399','Learning':'#fbbf24',
+  'Meetings':'#60a5fa','Communication':'#c084fc','Documentation':'#94a3b8',
+  'Research':'#4cd7f6','Design':'#f472b6','Entertainment':'#f87171',
+  'Browsing':'#94a3b8','System':'#94a3b8','Unknown':'#64748b'
+};
+const BG={};Object.keys(COLORS).forEach(k=>{const c=COLORS[k];BG[k]=c+'22'});
+
+let pieChart=null,barChart=null,selectedSessions=new Set();
+
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const tabMap={dashboard:'tab-dashboard',review:'tab-review',settings:'tab-settings'};
+  const navMap={dashboard:'nav-dashboard',review:'nav-review',settings:'nav-settings'};
+  document.getElementById(tabMap[name]).classList.add('active');
+  document.getElementById(navMap[name]).classList.add('active');
+  if(name==='dashboard')loadDashboard();
+  if(name==='review')loadPending();
+  if(name==='settings')loadSettings();
+}
+
+function fmtDur(s){
+  if(s<60)return s+'s';
+  if(s<3600)return Math.round(s/60)+'m';
+  return Math.floor(s/3600)+'h '+(Math.round((s%3600)/60)||0)+'m';
+}
+function fmtTime(iso){
+  return new Date(iso.endsWith('Z')?iso:iso+'Z').toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+}
+function toast(msg,type='info'){
+  const t=document.getElementById('toast');
+  const icons={info:'◈',success:'✦',error:'⚠'};
+  t.innerHTML=`<span style="color:${type==='success'?'#4ade80':type==='error'?'#f87171':'#c3c0ff'}">${icons[type]}</span> ${msg}`;
+  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);
+}
+function catClass(cat){return 'cat-'+(cat||'Unknown').replace(/\s/g,'-')}
+
+// SSE
+let _liveTimerInterval = null;
+let _liveData = null;
+
+function _updateLiveCard() {
+  const d = _liveData;
+  if (!d || !d.live_category) {
+    document.getElementById('live-session-card').style.display = 'none';
+    return;
+  }
+  const dur = fmtDur(d.live_duration_sec || 0);
+  const apps = (d.live_apps_seen || []).slice(0, 3).join(', ') || d.live_app || '—';
+  const startStr = d.live_start_iso
+    ? fmtTime(d.live_start_iso.endsWith('Z') ? d.live_start_iso : d.live_start_iso + 'Z')
+    : '';
+  const card = document.getElementById('live-session-card');
+  card.style.display = '';
+  card.innerHTML = `
+    <div class="step">
+      <div class="step-line">
+        <div class="step-dot active" style="background:#4cd7f6;box-shadow:0 0 8px #4cd7f6"></div>
+        <div class="step-connector"></div>
+      </div>
+      <div class="step-content" style="gap:4px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="step-app">${apps}</div>
+          <span style="font-size:12px;font-weight:700;color:#4cd7f6;letter-spacing:.03em" id="live-dur-text">${dur}</span>
+          <span style="font-size:10px;background:rgba(76,215,246,0.15);color:#4cd7f6;border:1px solid rgba(76,215,246,0.4);border-radius:4px;padding:1px 6px">⬤ LIVE</span>
+        </div>
+        <div class="step-meta">${startStr ? startStr + '  →  now (ongoing)' : 'Ongoing…'}</div>
+        <span class="step-cat-badge ${catClass(d.live_category)}" style="border:1px solid">${d.live_category}</span>
+      </div>
+    </div>`;
+}
+
+(function startSSE(){
+  const es=new EventSource('/api/live');
+  es.onmessage=e=>{
+    try{
+      const d=JSON.parse(e.data);
+      _liveData = d;
+      document.getElementById('sb-live-app').textContent=d.app||'—';
+      document.getElementById('sb-cat').textContent=d.category||'Idle';
+      document.getElementById('hero-title').textContent=d.category&&d.category!=='Unknown'?'Currently '+d.category:'System Idle';
+      document.getElementById('cmd-text').textContent=d.app?(d.app+(d.title?' — '+d.title.substring(0,28):'')):'Query metrics…';
+      const pb=document.getElementById('pending-badge');
+      const sb=document.getElementById('sidebar-badge');
+      if(d.pending>0){pb.style.display='';pb.textContent=d.pending+' pending';sb.style.display='';sb.textContent=d.pending}
+      else{pb.style.display='none';sb.style.display='none'}
+      _updateLiveCard();
+    }catch(ex){}
+  };
+  es.onerror=()=>setTimeout(startSSE,5000);
+
+  // Tick live duration counter every second
+  if(_liveTimerInterval) clearInterval(_liveTimerInterval);
+  _liveTimerInterval = setInterval(()=>{
+    if(_liveData && _liveData.live_duration_sec != null){
+      _liveData.live_duration_sec++;
+      const el = document.getElementById('live-dur-text');
+      if(el) el.textContent = fmtDur(_liveData.live_duration_sec);
+    }
+  }, 1000);
+})();
+
+// DASHBOARD
+async function loadDashboard(){
+  const[today,timeline,recentSessions,pending]=await Promise.all([
+    fetch('/api/stats/today').then(r=>r.json()).catch(()=>({})),
+    fetch('/api/stats/timeline?days=7').then(r=>r.json()).catch(()=>[]),
+    fetch('/api/sessions/recent?limit=12').then(r=>r.json()).catch(()=>[]),
+    fetch('/api/sessions/pending').then(r=>r.json()).catch(()=>[]),
+  ]);
+
+  const score=today.focus_score||0;
+  document.getElementById('score-num').textContent=score+'%';
+  const circ=2*Math.PI*38;
+  document.getElementById('score-arc').style.strokeDashoffset=circ-(circ*score/100);
+  document.getElementById('stat-total').textContent=fmtDur(today.total_sec||0);
+  document.getElementById('stat-sessions').textContent=(today.session_count||0)+' sessions';
+  document.getElementById('stat-pending').textContent=pending.length;
+  if(pending.length){document.getElementById('stat-pending-chip').style.display='inline-flex'}
+  const cats=today.by_category||[];
+  if(cats.length){
+    document.getElementById('stat-top').textContent=cats[0].category;
+    document.getElementById('stat-top-pct').textContent=cats[0].pct+'% of today';
+  }
+
+  // Pie
+  if(pieChart)pieChart.destroy();
+  pieChart=new Chart(document.getElementById('pie-chart').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:cats.map(c=>c.category),datasets:[{
+      data:cats.map(c=>c.duration_sec),
+      backgroundColor:cats.map(c=>BG[c.category]||'#64748b22'),
+      borderColor:cats.map(c=>COLORS[c.category]||'#64748b'),
+      borderWidth:1,hoverOffset:8
+    }]},
+    options:{plugins:{legend:{position:'bottom',labels:{color:'#c7c4d8',font:{size:11},boxWidth:10,padding:12}}},
+      cutout:'68%',animation:{duration:700}}
+  });
+
+  // Bar (7-day)
+  if(barChart)barChart.destroy();
+  const allCats=[...new Set(timeline.flatMap(d=>Object.keys(d.categories||{})))];
+  barChart=new Chart(document.getElementById('bar-chart').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:timeline.map(d=>d.date.slice(5)),
+      datasets:allCats.map(cat=>({
+        label:cat,data:timeline.map(d=>(d.categories[cat]||0)/60),
+        backgroundColor:(COLORS[cat]||'#64748b')+'33',
+        borderColor:COLORS[cat]||'#64748b',
+        borderWidth:1,borderRadius:4,stack:'a'
+      }))
+    },
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#918fa1',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},
+        y:{ticks:{color:'#918fa1',font:{size:10},callback:v=>v+'m'},grid:{color:'rgba(255,255,255,0.04)'},stacked:true}
+      },
+      animation:{duration:500}
+    }
+  });
+
+  // Session feed — grouped sessions, NOT raw per-second snapshots
+  const feed=document.getElementById('activity-feed');
+  if(!recentSessions.length){
+    feed.innerHTML='<div style="padding:24px;text-align:center;color:var(--outline);font-size:13px">No sessions yet — keep working and they\'ll appear here!</div>';
+  } else {
+    feed.innerHTML=recentSessions.map((s,i)=>{
+      const apps=(s.app_names||[]).slice(0,3).join(', ')||'—';
+      const timeRange=fmtTime(s.start_time)+(s.end_time?' → '+fmtTime(s.end_time):'  (ongoing)');
+      const dur=fmtDur(s.duration_sec);
+      const statusDot=s.status==='PENDING'?'🟡':s.status==='LOGGED'?'🟢':'🔵';
+      return `
+      <div class="step">
+        <div class="step-line">
+          <div class="step-dot${i===0?' active':''}"></div>
+          ${i<recentSessions.length-1?'<div class="step-connector"></div>':''}
+        </div>
+        <div class="step-content" style="gap:4px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div class="step-app">${apps}</div>
+            <span style="font-size:12px;font-weight:700;color:#4cd7f6;letter-spacing:.03em">${dur}</span>
+            <span style="font-size:10px;color:var(--outline)">${statusDot} ${s.status}</span>
+          </div>
+          <div class="step-meta">${timeRange}</div>
+          <span class="step-cat-badge ${catClass(s.category)}" style="border:1px solid">${s.category}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// REVIEW
+async function loadPending(){
+  const sessions=await fetch('/api/sessions/pending').then(r=>r.json()).catch(()=>[]);
+  selectedSessions=new Set(sessions.map(s=>s.id));
+  document.getElementById('pending-count-lbl').textContent=sessions.length+' pending';
+  const list=document.getElementById('pending-list');
+  if(!sessions.length){
+    list.innerHTML=`<div class="empty-state"><div class="empty-icon">✦</div><div class="empty-title">All caught up</div><div class="empty-sub">No sessions awaiting review. Keep working!</div></div>`;
+    return;
+  }
+  list.innerHTML=sessions.map(s=>{
+    const projHtml = s.project_name
+      ? `<span style="font-size:11px;color:#4cd7f6;margin-left:6px">📁 ${s.project_name}</span>`
+      : '';
+    const si = s.start_time||'';
+    const ei = s.end_time||'';
+    const pi = s.project_id||'';
+    const pn = (s.project_name||'').replace(/'/g,"\\'");
+    const desc = (s.description||'').replace(/'/g,"\\'");
+    const cat = s.category;
+    return `
+    <div class="session-item" id="sess-${s.id}">
+      <div>
+        <span class="sess-cat-pill ${catClass(s.category)}" style="border:1px solid">${s.category}</span>
+        ${projHtml}
+        <div class="sess-title">${s.description||s.category}</div>
+        <div class="sess-meta">${fmtTime(s.start_time)}${s.end_time?' → '+fmtTime(s.end_time):''}${s.app_names.length?' · '+s.app_names.slice(0,2).join(', '):''}
+        </div>
+        <div class="sess-actions">
+          <input type="checkbox" checked style="width:15px;height:15px;cursor:pointer;accent-color:#4cd7f6"
+            onchange="toggleSession(${s.id},this.checked)"/>
+          <button class="btn btn-ghost" onclick="openEdit(${s.id},'${cat}','${desc}','${si}','${ei}','${pi}','${pn}')">✏️ Edit</button>
+          <button class="btn btn-danger" onclick="skipSession(${s.id})">Skip</button>
+        </div>
+      </div>
+      <div>
+        <div class="sess-duration">${fmtDur(s.duration_sec)}</div>
+        <div class="sess-time">${fmtTime(s.start_time)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleSession(id,checked){checked?selectedSessions.add(id):selectedSessions.delete(id)}
+async function skipSession(id){
+  await fetch(`/api/sessions/${id}/skip`,{method:'POST'});
+  document.getElementById('sess-'+id).remove();
+  toast('Session skipped');
+}
+async function logAllToClockify(){
+  if(!selectedSessions.size){toast('No sessions selected','error');return}
+  const btn=document.getElementById('log-all-btn');
+  btn.disabled=true;btn.textContent='⏳ Syncing with Clockify…';
+  const res=await fetch('/api/sessions/log-to-clockify',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({session_ids:[...selectedSessions]})
+  }).then(r=>r.json()).catch(e=>({error:e.message}));
+  btn.disabled=false;btn.innerHTML='🚀 Log All to Clockify';
+  if(res.error){toast('Error: '+res.error,'error');return}
+  const ok=res.results.filter(r=>r.ok).length;
+  const fail=res.results.filter(r=>!r.ok).length;
+  if(ok)toast(`✦ ${ok} session(s) logged to Clockify!`,'success');
+  if(fail)toast(`⚠ ${fail} failed — check API key in Settings`,'error');
+  loadPending();
+}
+
+// MODAL
+let _cachedProjects = null;
+
+async function _loadProjects() {
+  if (_cachedProjects) return _cachedProjects;
+  const res = await fetch('/api/sessions/clockify-projects').then(r=>r.json()).catch(()=>({projects:[]}));
+  _cachedProjects = res.projects || [];
+  return _cachedProjects;
+}
+
+function openEdit(id, cat, desc, startIso, endIso, projectId, projectName) {
+  document.getElementById('edit-id').value = id;
+  document.getElementById('edit-cat').value = cat;
+  document.getElementById('edit-desc').value = desc;
+
+  // Time range display
+  const startStr = startIso ? fmtTime(startIso.endsWith('Z')?startIso:startIso+'Z') : '—';
+  const endStr   = endIso   ? fmtTime(endIso.endsWith('Z')?endIso:endIso+'Z')       : 'ongoing';
+  document.getElementById('edit-timerange').textContent = `⏱ ${startStr} → ${endStr}`;
+
+  // Close overlay
+  document.getElementById('modal-overlay').classList.add('open');
+
+  // Populate project dropdown
+  const sel = document.getElementById('edit-project');
+  sel.innerHTML = '<option value="">⏳ Loading…</option>';
+  _loadProjects().then(projects => {
+    if (!projects.length) {
+      sel.innerHTML = '<option value="">⚠ No projects — set API key in Settings</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">— No project —</option>' +
+      projects.map(p => `<option value="${p.id}" ${p.id===projectId?'selected':''}>${p.name}</option>`).join('');
+    // If we have a saved project name but no matching id, add it
+    if (projectId && !projects.find(p=>p.id===projectId) && projectName) {
+      sel.innerHTML += `<option value="${projectId}" selected>${projectName} (saved)</option>`;
+    }
+  });
+}
+
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open')}
+
+async function saveEdit(){
+  const id = document.getElementById('edit-id').value;
+  const sel = document.getElementById('edit-project');
+  const projectId = sel.value;
+  const projectName = sel.options[sel.selectedIndex]?.text || '';
+
+  await fetch(`/api/sessions/${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      category: document.getElementById('edit-cat').value,
+      description: document.getElementById('edit-desc').value,
+      project_id: projectId || null,
+      project_name: projectId ? projectName : null,
+    })});
+  closeModal(); loadPending(); toast('Session updated','success');
+}
+
+// SETTINGS
+async function loadSettings(){
+  const s=await fetch('/api/settings/').then(r=>r.json()).catch(()=>({}));
+  document.getElementById('s-api-key').value=s.clockify_api_key||'';
+  document.getElementById('s-workspace-id').value=s.clockify_workspace_id||'';
+  document.getElementById('s-project-id').value=s.clockify_default_project_id||'';
+  document.getElementById('s-idle').value=s.idle_threshold_minutes||5;
+  document.getElementById('s-min-sess').value=s.min_session_seconds||30;
+}
+async function saveSettings(){
+  const settings={
+    clockify_api_key:document.getElementById('s-api-key').value,
+    clockify_workspace_id:document.getElementById('s-workspace-id').value,
+    clockify_default_project_id:document.getElementById('s-project-id').value,
+    idle_threshold_minutes:document.getElementById('s-idle').value,
+    min_session_seconds:document.getElementById('s-min-sess').value,
+  };
+  await fetch('/api/settings/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({settings})});
+  toast('Settings saved successfully','success');
+}
+
+loadDashboard();
+setInterval(loadDashboard,30000);
+</script>
+</body>
+</html>
