@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Productivity Tracker — Cognitive Command</title>
+<title>General Intern Training 2026 — Cognitive Command</title>
 <link rel="stylesheet" href="/static/style.css"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
@@ -13,7 +13,7 @@
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div class="logo-badge">⚡</div>
-    <div class="logo-title">Tracker v1.0</div>
+    <div class="logo-title">General Intern Training 2026</div>
     <div class="logo-sub">COGNITIVE COMMAND</div>
   </div>
   <nav class="sidebar-nav">
@@ -46,7 +46,7 @@
 
   <!-- TOPBAR -->
   <header class="topbar">
-    <span class="app-name">AOS Console</span>
+    <span class="app-name">General Intern Training 2026</span>
     <div class="tab-nav">
       <button class="tab active" id="tab-dashboard" onclick="showPage('dashboard')">Focus</button>
       <button class="tab" id="tab-review" onclick="showPage('review')">Velocity</button>
@@ -164,19 +164,21 @@
       </div>
       <div class="card" style="max-width:680px">
         <div class="section-title">Clockify Integration</div>
-        <div class="settings-grid" style="margin-bottom:24px">
-          <div class="field-group" style="grid-column:span 2">
-            <label class="field-label">API Key</label>
-            <input type="text" id="s-api-key" placeholder="Paste your Clockify API key…"/>
-            <span style="font-size:11px;color:var(--outline);margin-top:4px">Found at clockify.me → Profile → API Key</span>
+        <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:24px">
+          <div class="field-group">
+            <label class="field-label">🔑 API Key</label>
+            <input type="text" id="s-api-key" placeholder="Paste your Clockify API key…" onblur="autoDetectWorkspace()"/>
+            <span style="font-size:11px;color:var(--outline);margin-top:4px">Found at clockify.me → Profile → API Key. Workspace auto-detects when you paste this.</span>
           </div>
           <div class="field-group">
-            <label class="field-label">Workspace ID</label>
-            <input type="text" id="s-workspace-id" placeholder="Workspace ID"/>
+            <label class="field-label">🏢 Workspace <span id="ws-status" style="font-size:11px;color:#4cd7f6"></span></label>
+            <input type="text" id="s-workspace-id" placeholder="Auto-detected from API key…" readonly style="opacity:0.7;cursor:not-allowed"/>
           </div>
           <div class="field-group">
-            <label class="field-label">Default Project ID (optional)</label>
-            <input type="text" id="s-project-id" placeholder="Project ID"/>
+            <label class="field-label">📁 Default Project <span style="font-size:10px;color:var(--outline)">(assigned to new sessions automatically)</span></label>
+            <select class="native" id="s-project-id">
+              <option value="">— No default project —</option>
+            </select>
           </div>
         </div>
         <div class="section-title" style="margin-top:8px">Tracker Behaviour</div>
@@ -570,21 +572,67 @@ async function saveEdit(){
 }
 
 // SETTINGS
-async function loadSettings(){
-  const s=await fetch('/api/settings/').then(r=>r.json()).catch(()=>({}));
-  document.getElementById('s-api-key').value=s.clockify_api_key||'';
-  document.getElementById('s-workspace-id').value=s.clockify_workspace_id||'';
-  document.getElementById('s-project-id').value=s.clockify_default_project_id||'';
-  document.getElementById('s-idle').value=s.idle_threshold_minutes||5;
-  document.getElementById('s-min-sess').value=s.min_session_seconds||30;
+async function autoDetectWorkspace(){
+  const apiKey = document.getElementById('s-api-key').value.trim();
+  if(!apiKey || apiKey.length < 10) return;
+  const status = document.getElementById('ws-status');
+  status.textContent = '⏳ detecting…';
+  try {
+    const r = await fetch('/api/sessions/clockify-detect-workspace?api_key='+encodeURIComponent(apiKey));
+    const d = await r.json();
+    if(d.workspace_id){
+      document.getElementById('s-workspace-id').value = d.workspace_id;
+      status.textContent = '✅ ' + (d.user_name||'detected');
+      // Also load projects
+      _loadSettingsProjects(apiKey, d.workspace_id);
+    } else {
+      status.textContent = '❌ Invalid key';
+    }
+  } catch(e) {
+    status.textContent = '❌ Error';
+  }
 }
+
+async function _loadSettingsProjects(apiKey, wsId){
+  const sel = document.getElementById('s-project-id');
+  const savedVal = sel.value;
+  sel.innerHTML = '<option value="">⏳ Loading…</option>';
+  try {
+    const r = await fetch('/api/sessions/clockify-projects');
+    const d = await r.json();
+    const projects = d.projects || [];
+    sel.innerHTML = '<option value="">— No default project —</option>' +
+      projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    if(savedVal) sel.value = savedVal;
+  } catch(e) {
+    sel.innerHTML = '<option value="">⚠ Could not load projects</option>';
+  }
+}
+
+async function loadSettings(){
+  const s = await fetch('/api/settings/').then(r=>r.json()).catch(()=>({}));
+  document.getElementById('s-api-key').value = s.clockify_api_key||'';
+  document.getElementById('s-workspace-id').value = s.clockify_workspace_id||'';
+  document.getElementById('s-idle').value = s.idle_threshold_minutes||5;
+  document.getElementById('s-min-sess').value = s.min_session_seconds||30;
+  // Load projects dropdown if workspace is set
+  if(s.clockify_workspace_id){
+    document.getElementById('ws-status').textContent = '✅ connected';
+    await _loadSettingsProjects();
+    // Select the saved default project
+    const sel = document.getElementById('s-project-id');
+    if(s.clockify_default_project_id) sel.value = s.clockify_default_project_id;
+  }
+}
+
 async function saveSettings(){
-  const settings={
-    clockify_api_key:document.getElementById('s-api-key').value,
-    clockify_workspace_id:document.getElementById('s-workspace-id').value,
-    clockify_default_project_id:document.getElementById('s-project-id').value,
-    idle_threshold_minutes:document.getElementById('s-idle').value,
-    min_session_seconds:document.getElementById('s-min-sess').value,
+  const sel = document.getElementById('s-project-id');
+  const settings = {
+    clockify_api_key: document.getElementById('s-api-key').value,
+    clockify_workspace_id: document.getElementById('s-workspace-id').value,
+    clockify_default_project_id: sel.value,
+    idle_threshold_minutes: document.getElementById('s-idle').value,
+    min_session_seconds: document.getElementById('s-min-sess').value,
   };
   await fetch('/api/settings/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({settings})});
   toast('Settings saved successfully','success');

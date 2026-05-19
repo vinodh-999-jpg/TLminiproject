@@ -44,21 +44,34 @@ class ActiveSession:
         self.current_app: str = ""       # most recent app seen
         self.app_names: list[str] = []
         self.urls: list[str] = []
-        self.page_titles: list[str] = [] # cleaned page titles (max 20 unique)
+        self.page_titles: list[str] = [] # cleaned page titles (max 5 unique)
         self._lock = threading.Lock()
 
     @staticmethod
     def _clean_title(window_title: str, process: str) -> str:
         """Strip browser/app suffixes to get the actual page/window title."""
+        import re
         t = window_title
+
+        # Strip browser suffix:  "Page Title - Google Chrome"  →  "Page Title"
         for suffix in ActiveSession._BROWSER_SUFFIXES:
             if t.endswith(suffix):
                 t = t[: -len(suffix)].strip()
                 break
-        # Also strip trailing " - AppName" patterns for other apps
+
+        # Strip Edge/Chrome multi-tab noise: "and 3 more pages - Personal"
+        t = re.sub(r"\s+and \d+ more pages?.*$", "", t, flags=re.IGNORECASE).strip()
+        # Strip profile suffix: "- Personal", "- Work", "- Default"
+        t = re.sub(r"\s*-\s*(Personal|Work|Default|Profile \d+)\s*$", "", t, flags=re.IGNORECASE).strip()
+
+        # Strip trailing " - AppName" for non-browser apps
         proc_name = process.lower().replace(".exe", "")
-        import re
         t = re.sub(r"\s*[-–]\s*" + re.escape(proc_name) + r"$", "", t, flags=re.IGNORECASE).strip()
+
+        # Truncate overly long titles
+        if len(t) > 60:
+            t = t[:57] + "…"
+
         return t
 
     def add_snapshot(self, app_name: str, url: Optional[str],
@@ -70,35 +83,37 @@ class ActiveSession:
                     self.app_names.append(app_name)
             if url and url not in self.urls:
                 self.urls.append(url)
-            # Extract and store meaningful page title
-            if window_title and len(self.page_titles) < 20:
+            # Extract and store meaningful page title (replace last to keep most recent)
+            if window_title:
                 cleaned = self._clean_title(window_title, process)
-                if cleaned and cleaned not in self.page_titles and len(cleaned) > 3:
-                    self.page_titles.append(cleaned)
+                if cleaned and len(cleaned) > 3:
+                    # Keep unique titles but cap at 5
+                    if cleaned not in self.page_titles:
+                        if len(self.page_titles) >= 5:
+                            self.page_titles.pop(0)  # drop oldest
+                        self.page_titles.append(cleaned)
 
     @property
     def duration_sec(self) -> int:
         return max(0, int((_utcnow() - self.start_time).total_seconds()))
 
     def description(self) -> str:
-        """Build a meaningful description from page titles and URLs."""
-        # Prefer page titles (most informative)
+        """Build a clean, concise description from page titles."""
         if self.page_titles:
-            # Pick top 3 most unique/descriptive titles
-            titles = self.page_titles[:3]
-            return "; ".join(titles)
+            # Show last 2 unique titles (most recent activity)
+            recent = self.page_titles[-2:]
+            return "; ".join(recent)
 
-        # Fall back to domains if no titles captured
+        # Fall back to domains
         if self.urls:
             from urllib.parse import urlparse
             domains = list({urlparse(u).netloc.replace("www.", "")
                            for u in self.urls[:3] if u})
             if domains:
-                apps = ", ".join(self.app_names[:2]) if self.app_names else ""
-                return f"{apps} ({', '.join(domains)})" if apps else ", ".join(domains)
+                return ", ".join(domains)
 
-        # Final fallback: app names + category
-        return ", ".join(self.app_names[:3]) if self.app_names else self.category
+        # Final fallback
+        return ", ".join(self.app_names[:2]) if self.app_names else self.category
 
 
 class SessionManager:

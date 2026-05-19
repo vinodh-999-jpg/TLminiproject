@@ -158,14 +158,18 @@ def log_to_clockify(body: ClockifyLogRequest, db: Session = Depends(get_db)):
     POST confirmed sessions to Clockify. Only PENDING sessions are processed.
     Returns per-session results.
     """
-    # Get API key from DB settings (user may have set it in dashboard) or fall back to env
-    api_key = _get_setting(db, "clockify_api_key") or cfg.CLOCKIFY_API_KEY
-    workspace_id = _get_setting(db, "clockify_workspace_id") or cfg.CLOCKIFY_WORKSPACE_ID
+    # Get API key from DB settings (user sets these in dashboard) — ignore .env placeholders
+    api_key = _get_setting(db, "clockify_api_key")
+    if not api_key or api_key in ("", "your_api_key_here"):
+        api_key = cfg.CLOCKIFY_API_KEY if cfg.CLOCKIFY_API_KEY not in ("", "your_api_key_here") else ""
+    workspace_id = _get_setting(db, "clockify_workspace_id")
+    if not workspace_id or workspace_id in ("", "your_workspace_id_here"):
+        workspace_id = cfg.CLOCKIFY_WORKSPACE_ID if cfg.CLOCKIFY_WORKSPACE_ID not in ("", "your_workspace_id_here") else ""
 
-    if not api_key or api_key == "your_api_key_here":
-        raise HTTPException(400, "Clockify API key not configured. Set it in Settings.")
+    if not api_key:
+        raise HTTPException(400, "Clockify API key not configured. Go to Output → Settings and paste your API key.")
     if not workspace_id:
-        raise HTTPException(400, "Clockify workspace ID not configured. Set it in Settings.")
+        raise HTTPException(400, "Clockify workspace ID not configured. Paste your API key in Settings — workspace auto-detects.")
 
     results = []
     for sid in body.session_ids:
@@ -190,10 +194,14 @@ def log_to_clockify(body: ClockifyLogRequest, db: Session = Depends(get_db)):
 @router.get("/clockify-projects")
 def get_clockify_projects(db: Session = Depends(get_db)):
     """Fetch project list from Clockify API using stored credentials."""
-    api_key = _get_setting(db, "clockify_api_key") or cfg.CLOCKIFY_API_KEY
-    workspace_id = _get_setting(db, "clockify_workspace_id") or cfg.CLOCKIFY_WORKSPACE_ID
-
+    api_key = _get_setting(db, "clockify_api_key")
     if not api_key or api_key in ("", "your_api_key_here"):
+        api_key = cfg.CLOCKIFY_API_KEY if cfg.CLOCKIFY_API_KEY not in ("", "your_api_key_here") else ""
+    workspace_id = _get_setting(db, "clockify_workspace_id")
+    if not workspace_id or workspace_id in ("", "your_workspace_id_here"):
+        workspace_id = cfg.CLOCKIFY_WORKSPACE_ID if cfg.CLOCKIFY_WORKSPACE_ID not in ("", "your_workspace_id_here") else ""
+
+    if not api_key:
         return {"error": "no_api_key", "projects": []}
     if not workspace_id:
         return {"error": "no_workspace_id", "projects": []}
@@ -209,6 +217,25 @@ def get_clockify_projects(db: Session = Depends(get_db)):
         log.error(f"Failed to fetch Clockify projects: {e}")
         return {"error": str(e), "projects": []}
 
+
+@router.get("/clockify-detect-workspace")
+def detect_workspace(api_key: str):
+    """Auto-detect workspace ID from a Clockify API key."""
+    if not api_key or len(api_key) < 10:
+        return {"error": "invalid_key"}
+    try:
+        headers = {"X-Api-Key": api_key}
+        resp = requests.get(f"{cfg.CLOCKIFY_BASE_URL}/user", headers=headers, timeout=10)
+        resp.raise_for_status()
+        user = resp.json()
+        return {
+            "workspace_id": user.get("defaultWorkspace") or user.get("activeWorkspace"),
+            "user_name": user.get("name", ""),
+            "email": user.get("email", ""),
+        }
+    except Exception as e:
+        log.error(f"Failed to detect workspace: {e}")
+        return {"error": str(e)}
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
