@@ -187,6 +187,15 @@ class SessionManager:
     def current_apps_seen(self) -> list[str]:
         return list(self._current.app_names) if self._current else []
 
+    @property
+    def current_description(self) -> str:
+        """Live session description built from page titles seen so far."""
+        return self._current.description() if self._current else ""
+
+    @property
+    def current_page_titles(self) -> list[str]:
+        return list(self._current.page_titles) if self._current else []
+
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _start_new(self, category: str):

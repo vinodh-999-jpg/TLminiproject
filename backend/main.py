@@ -92,11 +92,12 @@ async def live_status():
                     "title":    act.window_title[:60] if act and act.window_title else "",
                     "pending":  pending_count,
                     # Live in-memory session (not yet written to DB)
-                    "live_category":    mgr.current_category if mgr else None,
-                    "live_app":         mgr.current_app if mgr else "",
-                    "live_apps_seen":   mgr.current_apps_seen if mgr else [],
+                    "live_category":     mgr.current_category if mgr else None,
+                    "live_app":          mgr.current_app if mgr else "",
+                    "live_apps_seen":    mgr.current_apps_seen if mgr else [],
                     "live_duration_sec": mgr.current_duration_sec if mgr else 0,
-                    "live_start_iso":   mgr.current_session_start_iso if mgr else None,
+                    "live_start_iso":    mgr.current_session_start_iso if mgr else None,
+                    "live_description":  mgr.current_description if mgr else "",
                 }
                 yield f"data: {json.dumps(data)}\n\n"
             except Exception as e:

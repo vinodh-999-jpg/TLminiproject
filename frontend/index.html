@@ -298,6 +298,7 @@ function _updateLiveCard() {
   }
   const dur = fmtDur(d.live_duration_sec || 0);
   const apps = (d.live_apps_seen || []).slice(0, 3).join(', ') || d.live_app || '—';
+  const desc = d.live_description || apps;
   const startStr = d.live_start_iso
     ? fmtTime(d.live_start_iso.endsWith('Z') ? d.live_start_iso : d.live_start_iso + 'Z')
     : '';
@@ -315,6 +316,7 @@ function _updateLiveCard() {
           <span style="font-size:12px;font-weight:700;color:#4cd7f6;letter-spacing:.03em" id="live-dur-text">${dur}</span>
           <span style="font-size:10px;background:rgba(76,215,246,0.15);color:#4cd7f6;border:1px solid rgba(76,215,246,0.4);border-radius:4px;padding:1px 6px">⬤ LIVE</span>
         </div>
+        <div class="step-meta" style="color:#c7c4d8;font-size:12px;line-height:1.4">📝 ${desc}</div>
         <div class="step-meta">${startStr ? startStr + '  →  now (ongoing)' : 'Ongoing…'}</div>
         <span class="step-cat-badge ${catClass(d.live_category)}" style="border:1px solid">${d.live_category}</span>
       </div>
@@ -419,6 +421,7 @@ async function loadDashboard(){
   } else {
     feed.innerHTML=recentSessions.map((s,i)=>{
       const apps=(s.app_names||[]).slice(0,3).join(', ')||'—';
+      const desc=s.description||apps;
       const timeRange=fmtTime(s.start_time)+(s.end_time?' → '+fmtTime(s.end_time):'  (ongoing)');
       const dur=fmtDur(s.duration_sec);
       const statusDot=s.status==='PENDING'?'🟡':s.status==='LOGGED'?'🟢':'🔵';
@@ -434,6 +437,7 @@ async function loadDashboard(){
             <span style="font-size:12px;font-weight:700;color:#4cd7f6;letter-spacing:.03em">${dur}</span>
             <span style="font-size:10px;color:var(--outline)">${statusDot} ${s.status}</span>
           </div>
+          <div class="step-meta" style="color:#c7c4d8;font-size:12px;line-height:1.4">📝 ${desc}</div>
           <div class="step-meta">${timeRange}</div>
           <span class="step-cat-badge ${catClass(s.category)}" style="border:1px solid">${s.category}</span>
         </div>
